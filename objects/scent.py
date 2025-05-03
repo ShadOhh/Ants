@@ -5,7 +5,7 @@ class Scent:
     def __init__(self, pos, vector, type, screen):
         self.pos = pos
         self.vector = inverse(vector)
-        self.duration = 45
+        self.duration = 30
         self.strength = 1
         self.type = type.lower()
         self.start_time = time.time()

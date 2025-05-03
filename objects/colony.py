@@ -1,12 +1,9 @@
-
 import pygame
 
 class Colony():
-    def __init__(self, pos, screen, worldGrid, worldObjects, scentGrid, worldScent):
+    def __init__(self, pos, screen, worldGrid, worldObjects, scentGrid):
         self.worldObjects = worldObjects
-        
         self.scentGrid = scentGrid
-        self.worldScent = worldScent
         self.worldGrid = worldGrid
         self.pos = pos
         self.screen = screen
@@ -22,7 +19,6 @@ class Colony():
         self.storage += amt
 
     def update(self):
-        # print("Colony Updated")
         self.spawnAnt()
         self.draw()
     
@@ -30,5 +26,5 @@ class Colony():
         if self.storage >= self.spawnReq:
             self.storage -= self.spawnReq
             from objects.ants import Ant
-            self.worldObjects.append(Ant(self.pos, self.screen, self.worldGrid, self.scentGrid, self.worldScent))
+            self.worldObjects.append(Ant(self.pos, self.screen, self.worldGrid, self.scentGrid))
             print("SpawnCalled")

@@ -11,18 +11,17 @@ import time
 import random
 
 class Ant:
-    def __init__(self, pos, screen, worldGrid, scentGrid, worldScent):
+    def __init__(self, pos, screen, worldGrid, scentGrid):
         self.image = pygame.image.load("images\\image.png")
         self.image = pygame.transform.scale(self.image, (30, 30))
         self.pos = np.array(pos, dtype='float64')
         self.screen = screen
 
-        # Store a reference of all the objects and grid
+        # Grid references
         self.worldGrid = worldGrid
         self.scentGrid = scentGrid
-        self.worldScent = worldScent
-        
-        #params
+
+        # params
         self.maxspeed = 1.0
         self.wanderStr = 0.1
         self.steerStr = 3
@@ -33,21 +32,19 @@ class Ant:
         self.sightDistance = 50
         self.separationDistance = 5
         self._quadtree_node = None
-        
-        #inventory
+
+        # inventory
         self.hand = 0
         self.max = 1
 
-
-        #targets
+        # targets
         self.foodTarget = None
         self.colonyTarget = None
 
-        #internal clock
+        # internal clock
         self.initTime = time.time()
         self.dropFreq = 0.5
 
-        #debug things
         self.ANT_FONT = pygame.font.SysFont(None, 18)
 
     def wander(self):
@@ -79,7 +76,7 @@ class Ant:
         self.screen.blit(rotated_image, rotated_rect.topleft)
 
         # Uncomment for debug
-        # self.debug()
+        self.debug()
 
     def debug(self):
         pygame.draw.circle(self.screen,"red",self.pos, self.radius)
@@ -92,6 +89,8 @@ class Ant:
     def getNearby(self, distance, grid):
         nearby = grid.query(self.pos, distance)
         return nearby
+    def getNearbyNode(self):
+        return self.scentGrid.query(self.pos)
 
     # def dropScent(self):
         
@@ -106,6 +105,27 @@ class Ant:
     #             self.worldObjects.append(Scent(self.pos.copy(), facingDirection(self.vel), "home", self.screen))
     #     pass
 
+    # def dropScent(self):
+    #     current_time = time.time()
+
+    #     if current_time - self.initTime >= self.dropFreq:
+    #         self.initTime = current_time
+
+    #         scent_type = "food" if self.hand >= self.max else "home"
+    #         nearby = self.getNearby(self.sightDistance, self.scentGrid)
+
+    #         found_existing = False
+
+    #         for obj in nearby:
+    #             if isinstance(obj, Scent) and obj.type == scent_type:
+    #                 if np.linalg.norm(obj.pos - self.pos) < self.sightDistance/ 2:
+    #                     obj.strengthenScent()
+    #                     found_existing = True
+    #                     break
+
+    #         if not found_existing:
+    #             self.worldScent.append(Scent(self.pos.copy(), facingDirection(self.vel), scent_type, self.screen))
+
     def dropScent(self):
         current_time = time.time()
 
@@ -113,20 +133,26 @@ class Ant:
             self.initTime = current_time
 
             scent_type = "food" if self.hand >= self.max else "home"
-            nearby = self.getNearby(self.sightDistance, self.scentGrid)
+            scent_vector = facingDirection(self.vel)
 
-            found_existing = False
+            # Add directly to the VectorGrid
+            from objects.scent import Scent  # assuming you still need the type definition
+            scent = Scent(self.pos.copy(), scent_vector, scent_type, self.screen)
+            self.scentGrid.add(scent, self.pos)
 
-            for obj in nearby:
-                if isinstance(obj, Scent) and obj.type == scent_type:
-                    if np.linalg.norm(obj.pos - self.pos) < obj.radius * 2:
-                        obj.strengthenScent()
-                        found_existing = True
-                        break
+    def trackScent(self):
+        node = self.getNearbyNode()
+        if node is None:
+            return None
 
-            if not found_existing:
-                self.worldScent.append(Scent(self.pos.copy(), facingDirection(self.vel), scent_type, self.screen))
+        if self.hand >= self.max:
+            target_vector = node.gethomeVector()
+        else:
+            target_vector = node.getfoodVector()
 
+        if np.linalg.norm(target_vector) > 0:
+            return normalize(target_vector)
+        return None
 
     def rotate180(self):
         if np.linalg.norm(self.vel) != 0:
@@ -187,7 +213,7 @@ class Ant:
 
 
     # def trackScent(self):
-    #     nearby = self.getNearby(self.sightDistance)
+    #     nearby = self.getNearby(self.sightDistance, self.scentGrid)
 
     #     if self.hand >= self.max:
     #         # looking for home scent
@@ -196,19 +222,21 @@ class Ant:
     #         # looking for food scent
     #         filterScent = [obj for obj in nearby if isinstance(obj, Scent) and obj.type == "food"]
 
-    #     best_scent = None
-    #     max_strength = -1
+    #     combined_direction = np.zeros(2)
+    #     total_weight = 0
+
+    #     forward = facingDirection(self.vel)
 
     #     for scent in filterScent:
     #         direction = normalize(scent.pos - self.pos)
-    #         forward = facingDirection(self.vel)
     #         if angle_between(forward, direction) < self.viewAng / 2:
-    #             if scent.strength > max_strength:
-    #                 best_scent = scent
-    #                 max_strength = scent.strength
+    #             weight = scent.strength + 0.1  # slight bias for stronger scents
+    #             combined_direction += normalize(scent.vector) * weight
+    #             total_weight += weight
 
-    #     if best_scent:
-    #         return normalize(best_scent.vector)
+    #     if total_weight > 0:
+    #         averaged_direction = combined_direction / total_weight
+    #         return normalize(averaged_direction)
 
     #     return None
     
@@ -242,48 +270,48 @@ class Ant:
 
     #     return None
 
-    def trackScent(self):
-        nearby = self.getNearby(self.sightDistance, self.scentGrid)
-        if self.hand >= self.max:
-            target_type = "home"
-        else:
-            target_type = "food"
+    # def trackScent(self):
+    #     nearby = self.getNearby(self.sightDistance, self.scentGrid)
+    #     if self.hand >= self.max:
+    #         target_type = "home"
+    #     else:
+    #         target_type = "food"
 
-        forward = facingDirection(self.vel)
-        left_value = 0
-        center_value = 0
-        right_value = 0
+    #     forward = facingDirection(self.vel)
+    #     left_value = 0
+    #     center_value = 0
+    #     right_value = 0
 
-        for scent in nearby:
-            if not isinstance(scent, Scent) or scent.type != target_type:
-                continue
+    #     for scent in nearby:
+    #         if not isinstance(scent, Scent) or scent.type != target_type:
+    #             continue
 
-            direction = normalize(scent.pos - self.pos)
-            angle = angle_between(forward, direction)
-            cross = np.cross(forward, direction)
+    #         direction = normalize(scent.pos - self.pos)
+    #         angle = angle_between(forward, direction)
+    #         cross = np.cross(forward, direction)
 
-            # Check if within field of view
-            if angle < self.viewAng / 2:
-                # Assign to left, center, or right
-                if angle < self.viewAng / 6:
-                    center_value += scent.strength
-                elif cross > 0:
-                    left_value += scent.strength
-                else:
-                    right_value += scent.strength
+    #         # Check if within field of view
+    #         if angle < self.viewAng / 2:
+    #             # Assign to left, center, or right
+    #             if angle < self.viewAng / 6:
+    #                 center_value += scent.strength
+    #             elif cross > 0:
+    #                 left_value += scent.strength
+    #             else:
+    #                 right_value += scent.strength
 
-        # Decide direction
-        if center_value > max(left_value, right_value):
-            desired_direction = forward
-        elif left_value > right_value:
-            desired_direction = np.array([-forward[1], forward[0]])  # rotate left 90°
-        else:
-            desired_direction = np.array([forward[1], -forward[0]])  # rotate right 90°
+    #     # Decide direction
+    #     if center_value > max(left_value, right_value):
+    #         desired_direction = forward
+    #     elif left_value > right_value:
+    #         desired_direction = np.array([-forward[1], forward[0]])  # rotate left 90°
+    #     else:
+    #         desired_direction = np.array([forward[1], -forward[0]])  # rotate right 90°
 
-        if left_value == 0 and center_value == 0 and right_value == 0:
-            return None  # no scent, no steering
+    #     if left_value == 0 and center_value == 0 and right_value == 0:
+    #         return None  # no scent, no steering
 
-        return normalize(desired_direction)
+    #     return normalize(desired_direction)
         
 
 
@@ -315,7 +343,7 @@ class Ant:
     def handleColony(self):
         from objects.colony import Colony
         
-        if self.colonyTarget == None and self.hand <= self.max:
+        if self.colonyTarget == None and self.hand >= self.max:
             nearby = self.getNearby(self.sightDistance, self.worldGrid)
 
             filterColony = [obj for obj in nearby if isinstance(obj, Colony)]
@@ -408,6 +436,39 @@ class Ant:
     #     return steer
 
 
+    # def update(self):
+    #     if self.hand >= self.max:
+    #         self.handleColony()
+    #     elif self.hand < self.max:
+    #         self.handleFood()
+
+    #     self.dropScent()
+    #     # mouse_pos = pygame.mouse.get_pos()
+    #     scent_direction = self.trackScent()
+
+    #     if self.foodTarget is not None:
+    #         self.seek(self.foodTarget.pos)
+    #     elif self.colonyTarget is not None:
+    #         self.seek(self.colonyTarget.pos)
+    #     elif scent_direction is not None:
+    #         target_pos = self.pos + scent_direction * self.sightDistance
+    #         self.seek(target_pos)
+    #     # elif distance(self.pos, mouse_pos) < self.sightDistance:
+    #     #     self.seek(mouse_pos)
+    #     else:
+    #         self.wander()
+
+    #     # sep_force = self.separation()
+    #     # self.vel += sep_force
+    #     # self.vel = clamp_magnitude(self.vel, self.maxspeed)
+
+    #     edge_force = self.avoidEdges(self.screen.get_width(), self.screen.get_height())
+    #     self.vel += edge_force
+    #     self.vel = clamp_magnitude(self.vel, self.maxspeed)
+
+    #     self.pos += self.vel
+    #     self.draw()
+
     def update(self):
         if self.hand >= self.max:
             self.handleColony()
@@ -415,7 +476,6 @@ class Ant:
             self.handleFood()
 
         self.dropScent()
-        # mouse_pos = pygame.mouse.get_pos()
         scent_direction = self.trackScent()
 
         if self.foodTarget is not None:
@@ -425,14 +485,8 @@ class Ant:
         elif scent_direction is not None:
             target_pos = self.pos + scent_direction * self.sightDistance
             self.seek(target_pos)
-        # elif distance(self.pos, mouse_pos) < self.sightDistance:
-        #     self.seek(mouse_pos)
         else:
             self.wander()
-
-        # sep_force = self.separation()
-        # self.vel += sep_force
-        # self.vel = clamp_magnitude(self.vel, self.maxspeed)
 
         edge_force = self.avoidEdges(self.screen.get_width(), self.screen.get_height())
         self.vel += edge_force

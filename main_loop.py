@@ -2,13 +2,13 @@ import pygame
 from world import World
 
 pygame.init()
-default_size = (800, 600)
-screen = pygame.display.set_mode(default_size, pygame.RESIZABLE)
+default_size = (1000, 1000)
+screen = pygame.display.set_mode(default_size)
 clock = pygame.time.Clock()
 running = True
 base_width, base_height = default_size
 
-gameworld = World(screen)
+gameworld = World(screen, default_size[0], default_size[1], 50)
 
 # New: FPS font setup
 fps_font = pygame.font.SysFont(None, 24)

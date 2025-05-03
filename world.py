@@ -3,18 +3,18 @@ from objects.food import Food
 from objects.scent import Scent
 from objects.colony import Colony
 from utils.quadTree import Quadtree
+from utils.vectorgrid import VectorGrid
 
 class World:
-    def __init__(self, screen, width=800, height=600):
+    def __init__(self, screen, width, height, grid_cell_size):
         self.screen = screen
         self.worldObjects = []
-        self.worldScent = []
 
         self.worldQuadtree = Quadtree(width, height)
-        self.scentQuadtree = Quadtree(width, height)
+        self.scentGrid = VectorGrid(grid_cell_size)  # NEW: replace scentQuadtree
 
     def addAnt(self, pos):
-        ant = Ant(pos, self.screen, self.worldQuadtree, self.scentQuadtree, self.worldScent)
+        ant = Ant(pos, self.screen, self.worldQuadtree, self.scentGrid)
         self.worldObjects.append(ant)
         self.worldQuadtree.insert(ant)
 
@@ -24,18 +24,19 @@ class World:
         self.worldQuadtree.insert(food)
 
     def addColony(self, pos):
-        colony = Colony(pos, self.screen, self.worldQuadtree, self.worldObjects, self.scentQuadtree, self.worldScent)
+        colony = Colony(pos, self.screen, self.worldQuadtree, self.worldObjects, self.scentGrid)
         self.worldObjects.append(colony)
         self.worldQuadtree.insert(colony)
 
+    def addScent(self, scent, pos):
+        self.scentGrid.add(scent, pos)
+
     def update(self):
-        for scent in self.worldScent:
-            if scent.is_depleted():
-                self.worldScent.remove(scent)
-                if scent._quadtree_node:
-                    scent._quadtree_node.remove(scent)
-            else:
-                self.scentQuadtree.root.update_position(scent)
+
+        self.scentGrid.decay_all()
+        for obj in self.worldObjects:
+            if isinstance(obj, Scent):
+                self.addScent(obj, obj.pos)
 
         for obj in self.worldObjects:
             if isinstance(obj, Food):
@@ -47,8 +48,7 @@ class World:
 
             self.worldQuadtree.root.update_position(obj)
 
+        self.scentGrid.draw_debug(self.screen)
+        
         for obj in self.worldObjects:
             obj.update()
-
-        for scent in self.worldScent:
-            scent.update()
