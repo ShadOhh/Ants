@@ -11,7 +11,7 @@ class World:
         self.worldObjects = []
 
         self.worldQuadtree = Quadtree(width, height)
-        self.scentGrid = VectorGrid(grid_cell_size)  # NEW: replace scentQuadtree
+        self.scentGrid = VectorGrid(grid_cell_size)
 
     def addAnt(self, pos):
         ant = Ant(pos, self.screen, self.worldQuadtree, self.scentGrid)

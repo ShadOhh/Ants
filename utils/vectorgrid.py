@@ -1,15 +1,15 @@
 import pygame
 import numpy as np
 from objects.scent import Scent
+from utils.vectormethods import normalize
 
 class VectorGridNode:
     def __init__(self, decay_rate=0.999):
         self.homevector = np.zeros(2)
         self.foodvector = np.zeros(2)
-        self.decay_rate = decay_rate  # e.g., 0.99 means ~1% decay per frame
+        self.decay_rate = decay_rate
 
     def add(self, scent):
-        # Add vector scaled by scent strength (magnitude matters)
         if scent.type == "food":
             self.foodvector += normalize(scent.vector) * scent.strength
         elif scent.type == "home":
@@ -94,8 +94,3 @@ class VectorGrid:
 
         pygame.draw.polygon(screen, color, [point1, point2, point3])
 
-
-# Helper function (if not already imported)
-def normalize(v):
-    norm = np.linalg.norm(v)
-    return v / norm if norm > 0 else v
